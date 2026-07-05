@@ -1,8 +1,6 @@
 # Escuela — Instrucciones de despliegue y configuración de Firebase
 
-Este repositorio incluye una aplicación estática (index.html) que usa Firebase Firestore para
-almacenar y sincronizar registros de estudiantes. Para proteger las credenciales, se proporciona
-una plantilla de configuración que debes completar localmente.
+Esta rama introduce una reorganización: extrae la lógica JavaScript a `app.js`, carga condicional de `firebase-config.js` (local) y añade autenticación (Email/Password, Anónimo y Google Sign-In) para proteger las escrituras en Firestore.
 
 Pasos para configurar Firebase y habilitar guardado en la nube
 
@@ -12,51 +10,74 @@ Pasos para configurar Firebase y habilitar guardado en la nube
 2. Configurar Firestore
    - En el panel del proyecto, ve a Firestore Database y crea una base de datos (modo de prueba para desarrollo).
 
-3. Obtener firebaseConfig
+3. Habilitar Authentication
+   - En Firebase Console → Authentication → Sign-in method:
+     - Habilita Email/Password.
+     - Habilita Google si quieres permitir inicio con Google.
+     - (Opcional) Habilita Anonymous para pruebas rápidas.
+
+4. Obtener firebaseConfig
    - En Configuración del proyecto → Tus apps → Añadir app (web) si aún no tienes una.
    - Copia la configuración (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId).
 
-4. Aplicar la configuración localmente (dos opciones):
+5. Aplicar la configuración localmente (recomendado)
 
-  Opción A (recomendada para no subir credenciales):
-  - Copia `firebase-config.example.js` a `firebase-config.js` en la raíz del repositorio:
+   Opción A (recomendada para no subir credenciales):
+   - Copia `firebase-config.example.js` a `firebase-config.js` en la raíz del repositorio:
 
-      cp firebase-config.example.js firebase-config.js
+       cp firebase-config.example.js firebase-config.js
 
-  - Abre `firebase-config.js` y reemplaza los valores con los de tu proyecto Firebase.
-  - `firebase-config.js` está incluido en `.gitignore` para evitar subidas accidentales.
+   - Abre `firebase-config.js` y reemplaza los valores con los de tu proyecto Firebase.
+   - `firebase-config.js` está incluido en `.gitignore` para evitar subidas accidentales.
 
-  Opción B (alternativa):
-  - Edita `index.html` y reemplaza el objeto `firebaseConfig` (líneas cerca de 340) con tus valores.
-  - Esta opción es menos segura si el repositorio es público.
+   Opción B (alternativa menos segura):
+   - Edita `index.html` y reemplaza manualmente el objeto `firebaseConfig`.
 
-5. Reglas de seguridad (temporal para desarrollo)
+6. Reglas de seguridad sugeridas (Firestore)
 
-  Para pruebas rápidas puedes usar reglas abiertas (NO recomendado en producción):
+   - Para desarrollo rápido puedes usar reglas abiertas (NO recomendado en producción):
 
-  ```
-  rules_version = '2';
-  service cloud.firestore {
-    match /databases/{database}/documents {
-      match /{document=**} {
-        allow read, write: if true;
-      }
-    }
-  }
-  ```
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /{document=**} {
+         allow read, write: if true;
+       }
+     }
+   }
+   ```
 
-  - En producción debes restringir el acceso: por ejemplo permitir solo usuarios autenticados o validar datos.
+   - Recomendado (mínimo) para producción: permitir escritura solo a usuarios autenticados y lectura pública o autenticada según necesidad. Ejemplo mínimo:
 
-6. Despliegue de GitHub Pages
-  - GitHub Pages ya está habilitado para este repositorio (según la configuración del repo).
-  - Si editas `index.html` (o añades firebase-config.js localmente), sube los cambios y espera unos minutos
-    para que GitHub Pages publique la nueva versión en: `https://<tu-usuario>.github.io/escuela/`
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /estudiantes/{docId} {
+         allow read: if true; // o `if request.auth != null;` según tu política
+         allow write: if request.auth != null;
+       }
+     }
+   }
+   ```
 
-Comprobaciones posteriores
-  - Abre la página y revisa la consola del navegador (DevTools) para ver "Firebase inicializado correctamente".
-  - Crea/edita/elimina un estudiante y verifica que aparecen documentos en la colección `estudiantes` de Firestore.
+7. Despliegue de GitHub Pages
+   - Sirve la carpeta localmente para pruebas: `python -m http.server 8000` o `npx serve .`.
+   - Para publicar en GitHub Pages, sube tus cambios (excepto `firebase-config.js`) y espera unos minutos. La URL será: `https://<tu-usuario>.github.io/escuela/`.
+
+Pruebas rápidas
+
+- Abrir la página y usar el botón "Iniciar sesión" en el header para crear una cuenta (Email/Password), entrar con Google o iniciar sesión anónima.
+- Crear/editar/eliminar estudiantes.
+- Simular offline (DevTools → Offline), crear un estudiante; al reconectar la app intentará sincronizar la cola de pendientes automáticamente.
+
+Notas de seguridad
+
+- NUNCA subas `firebase-config.js` si contiene credenciales de un proyecto en producción. Usa proyectos de desarrollo para pruebas.
+- Revisa las reglas de Firestore antes de usar en producción para evitar accesos no deseados.
 
 Si quieres, puedo:
-- Añadir un pequeño script en index.html para detectar y cargar `firebase-config.js` de forma segura si existe.
-- Crear un Pull Request con esos cambios en vez de un commit directo.
+- Abrir el Pull Request con estos cambios ahora (incluye app.js y README actualizado).
+- Añadir tests o validación adicional en el formulario (por ejemplo, validación del teléfono, email obligatorio, etc.).
 
