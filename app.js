@@ -36,7 +36,9 @@
   const header = document.querySelector('header .max-w-7xl');
   const authContainer = document.createElement('div');
   authContainer.className = 'ml-4';
-  header.querySelector('.flex.items-center.justify-between > div:last-child').appendChild(authContainer);
+  // append to header controls area if possible
+  const headerRight = header.querySelector('.flex.items-center.gap-3') || header.querySelector(':scope > div:last-child');
+  if (headerRight) headerRight.appendChild(authContainer);
 
   // ======== Estado ========
   let students = [];
@@ -123,8 +125,9 @@
     authContainer.innerHTML = '';
     const btn = document.createElement('div');
     if (user){
-      const name = user.email || (user.isAnonymous ? 'Anónimo' : 'Usuario');
-      btn.innerHTML = `<div class="flex items-center gap-2"><span class="text-sm text-gray-200">${name}</span><button id="sign-out" class="px-3 py-1 rounded-lg text-sm text-white" style="background: #ef4444;">Cerrar</button></div>`;
+      const name = user.displayName || user.email || (user.isAnonymous ? 'Anónimo' : 'Usuario');
+      const avatar = user.photoURL ? `<img src="${user.photoURL}" alt="avatar" class="rounded-full w-6 h-6"/>` : '';
+      btn.innerHTML = `<div class="flex items-center gap-2"><span class="text-sm text-gray-200">${avatar}<span style="margin-left:6px">${name}</span></span><button id="sign-out" class="px-3 py-1 rounded-lg text-sm text-white" style="background: #ef4444;">Cerrar</button></div>`;
       authContainer.appendChild(btn);
       authContainer.querySelector('#sign-out').addEventListener('click', ()=>auth.signOut());
     } else {
@@ -135,37 +138,53 @@
   }
 
   function showAuthModal(){
-    // Simple prompt-based auth modal (email/password) to avoid changing HTML markup.
+    // Simple modal with email/password, anonymous and Google sign-in
     const modal = document.createElement('div');
     modal.style.position='fixed'; modal.style.inset=0; modal.style.background='rgba(0,0,0,0.6)'; modal.style.display='flex'; modal.style.alignItems='center'; modal.style.justifyContent='center'; modal.style.zIndex=9999;
     modal.innerHTML = `
-      <div style="background:#0d1724;padding:20px;border-radius:12px;max-width:420px;width:100%;color:#fff;">
+      <div style="background:#0d1724;padding:20px;border-radius:12px;max-width:480px;width:100%;color:#fff;">
         <h3 style="margin:0 0 12px 0;font-weight:700;">Iniciar sesión</h3>
         <input id="auth-email" placeholder="Correo electrónico" style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;background:#071122;border:1px solid rgba(255,255,255,0.06);" />
         <input id="auth-pass" placeholder="Contraseña" type="password" style="width:100%;padding:10px;margin-bottom:8px;border-radius:8px;background:#071122;border:1px solid rgba(255,255,255,0.06);" />
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
-          <button id="auth-anon" style="padding:8px 12px;border-radius:8px;background:#f59e0b;color:#072;">Anónimo</button>
-          <button id="auth-signup" style="padding:8px 12px;border-radius:8px;background:#06b;color:#fff;">Crear cuenta</button>
-          <button id="auth-signin" style="padding:8px 12px;border-radius:8px;background:#4ecdc4;color:#012;">Entrar</button>
+        <div style="display:flex;gap:8px;justify-content:space-between;margin-top:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;">
+            <button id="auth-anon" style="padding:8px 12px;border-radius:8px;background:#f59e0b;color:#072;">Anónimo</button>
+            <button id="auth-signup" style="padding:8px 12px;border-radius:8px;background:#06b;color:#fff;">Crear cuenta</button>
+            <button id="auth-signin" style="padding:8px 12px;border-radius:8px;background:#4ecdc4;color:#012;">Entrar</button>
+          </div>
+          <button id="auth-google" style="padding:8px 12px;border-radius:8px;background:#4285F4;color:#fff;">Entrar con Google</button>
         </div>
       </div>`;
     document.body.appendChild(modal);
+
     modal.querySelector('#auth-signin').addEventListener('click', async ()=>{
       const email = modal.querySelector('#auth-email').value;
       const pass = modal.querySelector('#auth-pass').value;
       try{ await auth.signInWithEmailAndPassword(email, pass); document.body.removeChild(modal); showToast('Sesión iniciada'); }
       catch(err){ showToast('Error: '+err.message,false); }
     });
+
     modal.querySelector('#auth-signup').addEventListener('click', async ()=>{
       const email = modal.querySelector('#auth-email').value;
       const pass = modal.querySelector('#auth-pass').value;
       try{ await auth.createUserWithEmailAndPassword(email, pass); document.body.removeChild(modal); showToast('Cuenta creada'); }
       catch(err){ showToast('Error: '+err.message,false); }
     });
+
     modal.querySelector('#auth-anon').addEventListener('click', async ()=>{
       try{ await auth.signInAnonymously(); document.body.removeChild(modal); showToast('Sesión anónima'); }
       catch(err){ showToast('Error: '+err.message,false); }
     });
+
+    modal.querySelector('#auth-google').addEventListener('click', async ()=>{
+      try{
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+        document.body.removeChild(modal);
+        showToast('Sesión iniciada con Google');
+      } catch(err){ console.error('Google sign-in error', err); showToast('Error: '+err.message, false); }
+    });
+
     modal.addEventListener('click', (e)=>{ if (e.target===modal) document.body.removeChild(modal); });
   }
 
