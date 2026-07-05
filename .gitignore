@@ -1,0 +1,5 @@
+.DS_Store
+node_modules/
+.env
+# Evitar subir la configuración privada de Firebase
+firebase-config.js
